@@ -10,25 +10,23 @@ class UserController extends AsyncNotifier<List<User>> {
     return _fetchUsers();
   }
 
-  Future<List<User>> _fetchUsers() {
-    return ref.read(userRepositoryProvider).getAllUsers();
+ Future<List<User>> _fetchUsers() {
+    return ref.read(userRepositoryProvider).getAllUsers().timeout(
+      const Duration(seconds: 20),
+      onTimeout: () => throw TimeoutException('Gagal memuat daftar user. Waktu habis.'),
+    );
   }
 
   Future<bool> addUser({
-    required String nama,
-    required String email,
-    required String nomorHp,
-    required String password,
-    required String jabatan,
-    required String role,
-    // required File fotoProfil, // Untuk nanti
+    required Map<String, dynamic> userData,
+    required File fotoProfil,
   }) async {
     state = const AsyncLoading();
     try {
-      // Panggil repository untuk menambahkan user baru
-      // await ref.read(userRepositoryProvider).addUser(...); // Ini belum kita buat, kita lewati dulu
-
-      // Setelah berhasil, muat ulang daftar user
+      await ref.read(userRepositoryProvider).addUser(
+        userData: userData,
+        fotoProfil: fotoProfil,
+      );
       state = await AsyncValue.guard(() => _fetchUsers());
       return true;
     } catch (e) {
@@ -38,17 +36,28 @@ class UserController extends AsyncNotifier<List<User>> {
   }
 
   Future<bool> updateUser(Map<String, dynamic> userData) async {
-  state = const AsyncLoading();
-  try {
-    await ref.read(userRepositoryProvider).updateUser(userData);
-    // Muat ulang data untuk menampilkan perubahan
-    state = await AsyncValue.guard(() => _fetchUsers());
-    return true;
-  } catch (e) {
-    state = await AsyncValue.guard(() => _fetchUsers());
-    return false;
+    state = const AsyncLoading();
+    try {
+      await ref.read(userRepositoryProvider).updateUser(userData);
+      state = await AsyncValue.guard(() => _fetchUsers());
+      return true;
+    } catch (e) {
+      state = await AsyncValue.guard(() => _fetchUsers());
+      return false;
+    }
   }
-}
+
+  Future<bool> deleteUser(String userId) async {
+    state = const AsyncLoading();
+    try {
+      await ref.read(userRepositoryProvider).deleteUser(userId);
+      state = await AsyncValue.guard(() => _fetchUsers());
+      return true;
+    } catch (e) {
+      state = await AsyncValue.guard(() => _fetchUsers());
+      return false;
+    }
+  }
 }
 
 final userControllerProvider = AsyncNotifierProvider<UserController, List<User>>(() {

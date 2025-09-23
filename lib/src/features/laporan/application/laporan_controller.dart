@@ -16,7 +16,12 @@ class LaporanController extends AsyncNotifier<List<Laporan>> {
   // Fungsi privat untuk mengambil data dari repository
   Future<List<Laporan>> _fetchLaporan() async {
     final laporanRepository = ref.read(laporanRepositoryProvider);
-    final laporan = await laporanRepository.getAllLaporan();
+    final laporan = await laporanRepository.getAllLaporan().timeout(
+      const Duration(seconds: 15),
+      onTimeout: () {
+        throw TimeoutException('Gagal memuat laporan. Waktu habis.');
+      },
+    );
     return laporan;
   }
 

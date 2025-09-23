@@ -1,6 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lapor_app/src/core/api/api_service.dart';
 import 'package:lapor_app/src/core/models/user_model.dart';
+import 'package:path/path.dart' as p;
 
 class UserRepository {
   final ApiService _apiService;
@@ -11,16 +14,8 @@ class UserRepository {
       final response = await _apiService.getAllUsers();
       if (response['status'] == 'success') {
         final List<dynamic> userListJson = response['data'];
-        return userListJson.map((json) => User(
-          userId: json['user_id'],
-          nama: json['nama'],
-          email: json['email'],
-          role: json['role'],
-          jabatan: json['jabatan'],
-          nomorHp: json['nomor_hp'],
-          fotoProfilUrl: json['link_foto_profil'],
-          tanggalDibuat: DateTime.parse(json['tanggal_dibuat']),
-        )).toList();
+        // Panggil User.fromJson yang sudah kita buat
+        return userListJson.map((json) => User.fromJson(json)).toList();
       } else {
         throw Exception(response['message'] ?? 'Gagal memuat data user');
       }
@@ -29,14 +24,41 @@ class UserRepository {
     }
   }
 
-  Future<void> updateUser(Map<String, dynamic> userData) async {
+  Future<void> addUser({
+    required Map<String, dynamic> userData,
+    required File fotoProfil,
+  }) async {
     try {
-      final response = await _apiService.updateUser(userData);
+      final bytes = await fotoProfil.readAsBytes();
+      final base64Image = base64Encode(bytes);
+      final fileType = p.extension(fotoProfil.path).replaceAll('.', '');
+
+      userData['foto_profil'] = {
+        'base64': base64Image,
+        'type': 'image/$fileType',
+        'name': p.basename(fotoProfil.path),
+      };
+
+      final response = await _apiService.addUser(userData);
       if (response['status'] != 'success') {
-        throw Exception(response['message'] ?? 'Gagal update data user');
+        throw Exception(response['message'] ?? 'Gagal menambah user');
       }
     } catch (e) {
       rethrow;
+    }
+  }
+
+  Future<void> updateUser(Map<String, dynamic> userData) async {
+    final response = await _apiService.updateUser(userData);
+    if (response['status'] != 'success') {
+      throw Exception(response['message'] ?? 'Gagal update user');
+    }
+  }
+
+  Future<void> deleteUser(String userId) async {
+    final response = await _apiService.deleteUser(userId);
+    if (response['status'] != 'success') {
+      throw Exception(response['message'] ?? 'Gagal menghapus user');
     }
   }
 }

@@ -12,6 +12,7 @@ class UpdateUserScreen extends ConsumerStatefulWidget {
 }
 
 class _UpdateUserScreenState extends ConsumerState<UpdateUserScreen> {
+  bool _isLoading = false;
   late final TextEditingController _namaController;
   late final TextEditingController _emailController;
   late final TextEditingController _nomorHpController;
@@ -38,29 +39,48 @@ class _UpdateUserScreenState extends ConsumerState<UpdateUserScreen> {
   }
 
   Future<void> _handleUpdateUser() async {
-    final userData = {
-      'user_id': widget.user.userId,
-      'nama': _namaController.text,
-      'email': _emailController.text,
-      'nomor_hp': _nomorHpController.text,
-      'jabatan': _jabatanController.text,
-      'role': _selectedRole,
-    };
+    setState(() => _isLoading = true);
 
-    final success = await ref.read(userControllerProvider.notifier).updateUser(userData);
+    try {
+      final userData = {
+        'user_id': widget.user.userId,
+        'nama': _namaController.text,
+        'email': _emailController.text,
+        'nomor_hp': _nomorHpController.text, // Perbaikan kunci
+        'jabatan': _jabatanController.text,
+        'role': _selectedRole,
+      };
 
-    if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Data user berhasil diperbarui")),
-      );
-      Navigator.of(context).pop();
+      await ref.read(userControllerProvider.notifier).updateUser(userData);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Data user berhasil diperbarui"),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Kembali ke halaman detail, lalu ke daftar user
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Gagal update user: ${e.toString()}"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final userState = ref.watch(userControllerProvider);
-
     return Scaffold(
       appBar: AppBar(title: const Text("Update User")),
       body: ListView(
@@ -90,13 +110,13 @@ class _UpdateUserScreenState extends ConsumerState<UpdateUserScreen> {
       ),
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: userState.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ElevatedButton.icon(
-              onPressed: _handleUpdateUser,
-              icon: const Icon(Icons.save),
-              label: const Text("Simpan Perubahan"),
-            ),
+        child: ElevatedButton.icon(
+          onPressed: _isLoading ? null : _handleUpdateUser,
+          icon: _isLoading
+              ? const SizedBox.square(dimension: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
+              : const Icon(Icons.save),
+          label: Text(_isLoading ? "Menyimpan..." : "Simpan Perubahan"),
+        ),
       ),
     );
   }

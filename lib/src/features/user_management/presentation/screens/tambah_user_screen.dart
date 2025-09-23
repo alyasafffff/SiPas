@@ -21,6 +21,7 @@ class _TambahUserScreenState extends ConsumerState<TambahUserScreen> {
   String _selectedRole = 'Staff';
   File? _fotoProfil;
   final ImagePicker _picker = ImagePicker();
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -40,28 +41,50 @@ class _TambahUserScreenState extends ConsumerState<TambahUserScreen> {
   }
 
   Future<void> _handleSimpanUser() async {
-    if (_formKey.currentState?.validate() ?? false) {
-      if (_fotoProfil == null) {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (_fotoProfil == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Foto Profil wajib diupload")),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final userData = {
+        "nama": _namaController.text,
+        "email": _emailController.text,
+        "nomor_hp": _hpController.text, // PERBAIKAN: kunci diubah
+        "password": _passwordController.text,
+        "jabatan": _jabatanController.text,
+        "role": _selectedRole,
+      };
+
+      await ref
+          .read(userControllerProvider.notifier)
+          .addUser(userData: userData, fotoProfil: _fotoProfil!);
+
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Foto Profil wajib diupload")),
+          const SnackBar(
+            content: Text("User berhasil ditambahkan"),
+            backgroundColor: Colors.green,
+          ),
         );
-        return;
+        Navigator.of(context).pop(); // Kembali ke halaman daftar
       }
-
-      final success = await ref.read(userControllerProvider.notifier).addUser(
-            nama: _namaController.text,
-            email: _emailController.text,
-            nomorHp: _hpController.text,
-            password: _passwordController.text,
-            jabatan: _jabatanController.text,
-            role: _selectedRole,
-          );
-
-      if (success && mounted) {
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("User berhasil ditambahkan")),
+          SnackBar(
+            content: Text("Gagal: ${e.toString()}"),
+            backgroundColor: Colors.red,
+          ),
         );
-        Navigator.of(context).pop();
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -76,15 +99,50 @@ class _TambahUserScreenState extends ConsumerState<TambahUserScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16.0),
           children: [
-            TextFormField(controller: _namaController, decoration: const InputDecoration(labelText: "Nama Lengkap", border: OutlineInputBorder()), validator: (v) => v!.isEmpty ? "Nama wajib diisi" : null),
+            TextFormField(
+              controller: _namaController,
+              decoration: const InputDecoration(
+                labelText: "Nama Lengkap",
+                border: OutlineInputBorder(),
+              ),
+              validator: (v) => v!.isEmpty ? "Nama wajib diisi" : null,
+            ),
             const SizedBox(height: 16),
-            TextFormField(controller: _emailController, decoration: const InputDecoration(labelText: "Email", border: OutlineInputBorder()), validator: (v) => v!.isEmpty ? "Email wajib diisi" : null),
+            TextFormField(
+              controller: _emailController,
+              decoration: const InputDecoration(
+                labelText: "Email",
+                border: OutlineInputBorder(),
+              ),
+              validator: (v) => v!.isEmpty ? "Email wajib diisi" : null,
+            ),
             const SizedBox(height: 16),
-            TextFormField(controller: _hpController, decoration: const InputDecoration(labelText: "Nomor HP", border: OutlineInputBorder())),
+            TextFormField(
+              controller: _hpController,
+              decoration: const InputDecoration(
+                labelText: "Nomor HP",
+                border: OutlineInputBorder(),
+              ),
+            ),
             const SizedBox(height: 16),
-            TextFormField(controller: _passwordController, obscureText: true, decoration: const InputDecoration(labelText: "Password", border: OutlineInputBorder()), validator: (v) => v!.isEmpty ? "Password wajib diisi" : null),
+            TextFormField(
+              controller: _passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: "Password",
+                border: OutlineInputBorder(),
+              ),
+              validator: (v) => v!.isEmpty ? "Password wajib diisi" : null,
+            ),
             const SizedBox(height: 16),
-            TextFormField(controller: _jabatanController, decoration: const InputDecoration(labelText: "Jabatan", border: OutlineInputBorder()), validator: (v) => v!.isEmpty ? "Jabatan wajib diisi" : null),
+            TextFormField(
+              controller: _jabatanController,
+              decoration: const InputDecoration(
+                labelText: "Jabatan",
+                border: OutlineInputBorder(),
+              ),
+              validator: (v) => v!.isEmpty ? "Jabatan wajib diisi" : null,
+            ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               value: _selectedRole,
@@ -93,25 +151,43 @@ class _TambahUserScreenState extends ConsumerState<TambahUserScreen> {
                 DropdownMenuItem(value: 'Staff', child: Text('Staff')),
               ],
               onChanged: (val) => setState(() => _selectedRole = val!),
-              decoration: const InputDecoration(labelText: "Role", border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: "Role",
+                border: OutlineInputBorder(),
+              ),
             ),
             const SizedBox(height: 16),
-            ElevatedButton.icon(onPressed: _pickFotoProfil, icon: const Icon(Icons.camera_alt), label: const Text("Upload Foto Profil")),
-            const SizedBox(height: 8),
+            ElevatedButton.icon(
+              onPressed: _pickFotoProfil,
+              icon: const Icon(Icons.camera_alt),
+              label: const Text("Upload Foto Profil"),
+            ),
+            const SizedBox(height: 16),
             if (_fotoProfil != null)
-              Center(child: CircleAvatar(radius: 90, backgroundImage: FileImage(_fotoProfil!))),
+              Center(
+                child: CircleAvatar(
+                  radius: 90,
+                  backgroundImage: FileImage(_fotoProfil!),
+                ),
+              ),
           ],
         ),
       ),
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: userState.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ElevatedButton.icon(
-              onPressed: _handleSimpanUser,
-              icon: const Icon(Icons.save),
-              label: const Text("Simpan User"),
-            ),
+        child: ElevatedButton.icon(
+          onPressed: _isLoading ? null : _handleSimpanUser,
+          icon: _isLoading
+              ? const SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 3,
+                  ),
+                )
+              : const Icon(Icons.save),
+          label: Text(_isLoading ? "Menyimpan..." : "Simpan User"),
+        ),
       ),
     );
   }

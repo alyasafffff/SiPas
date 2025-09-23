@@ -18,4 +18,17 @@ class User {
     required this.fotoProfilUrl,
     required this.tanggalDibuat,
   });
+
+   factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+      userId: json['user_id'].toString(),
+      nama: json['nama'] ?? '',
+      email: json['email'] ?? '',
+      role: json['role'] ?? 'Staff',
+      jabatan: json['jabatan'] ?? '',
+      nomorHp: json['nomor_hp'].toString(),
+      fotoProfilUrl: json['link_foto_profil'] ?? '',
+      tanggalDibuat: DateTime.parse(json['tanggal_dibuat']),
+    );
+  }
 }

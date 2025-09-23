@@ -1,46 +1,62 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lapor_app/src/core/models/user_model.dart';
+import 'package:lapor_app/src/features/user_management/application/user_controller.dart';
 import 'package:lapor_app/src/features/user_management/presentation/screens/update_user_screen.dart';
 
-class UserDetailScreen extends ConsumerWidget {
+class UserDetailScreen extends ConsumerStatefulWidget {
   final User user;
   const UserDetailScreen({super.key, required this.user});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<UserDetailScreen> createState() => _UserDetailScreenState();
+}
+
+class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
+  // State lokal untuk mengontrol loading pada tombol hapus
+  bool _isDeleting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final User user = widget.user;
     final Color roleColor = user.role.toLowerCase() == 'admin'
         ? Colors.green
         : Colors.orange;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Detail User"),
-      ),
+      appBar: AppBar(title: const Text("Detail User")),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- Header: Nama dan Role ---
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Text(
                     user.nama,
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: roleColor,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     user.role,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -51,19 +67,14 @@ class UserDetailScreen extends ConsumerWidget {
               style: const TextStyle(color: Colors.black54, fontSize: 14),
             ),
             const SizedBox(height: 20),
-
-            // --- Foto Profil ---
             Center(
               child: CircleAvatar(
                 radius: 90,
                 backgroundColor: Colors.grey.shade300,
-                // backgroundImage: NetworkImage(user.fotoProfilUrl), // Gunakan ini nanti
-                backgroundImage: const AssetImage("assets/foto_profil/alya.jpg"), // Placeholder
+                backgroundImage: NetworkImage(user.fotoProfilUrl),
               ),
             ),
             const SizedBox(height: 20),
-
-            // --- Info Akun ---
             const Text(
               "Info Akun",
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
@@ -75,8 +86,6 @@ class UserDetailScreen extends ConsumerWidget {
             _buildInfoRow("Jabatan", user.jabatan),
             _buildInfoRow("Nomor HP", user.nomorHp),
             const SizedBox(height: 20),
-
-            // --- Aktivitas (Placeholder) ---
             const Text(
               "Aktivitas",
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
@@ -87,7 +96,7 @@ class UserDetailScreen extends ConsumerWidget {
                 Expanded(
                   child: _StatCard(
                     title: "Laporan Proses",
-                    value: "0", // Data ini perlu diambil/dihitung nanti
+                    value: "0",
                     color: Color.fromARGB(255, 242, 182, 92),
                     icon: Icons.pending_actions,
                   ),
@@ -96,7 +105,7 @@ class UserDetailScreen extends ConsumerWidget {
                 Expanded(
                   child: _StatCard(
                     title: "Laporan Selesai",
-                    value: "0", // Data ini perlu diambil/dihitung nanti
+                    value: "0",
                     color: Color.fromARGB(255, 96, 171, 98),
                     icon: Icons.check_circle,
                   ),
@@ -106,17 +115,17 @@ class UserDetailScreen extends ConsumerWidget {
           ],
         ),
       ),
-       bottomNavigationBar: Padding(
+      bottomNavigationBar: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).push(MaterialPageRoute(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
                     builder: (_) => UpdateUserScreen(user: user),
-                  ));
-                },
+                  ),
+                ),
                 icon: const Icon(Icons.edit),
                 label: const Text("Edit"),
               ),
@@ -124,12 +133,88 @@ class UserDetailScreen extends ConsumerWidget {
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: () {
-                  // TODO: Tambahkan logika hapus user
-                },
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                icon: const Icon(Icons.delete),
-                label: const Text("Hapus"),
+                onPressed: _isDeleting
+                    ? null
+                    : () {
+                        showDialog(
+                          context: context,
+                          builder: (dialogContext) => AlertDialog(
+                            title: const Text('Konfirmasi Hapus'),
+                            content: Text(
+                              'Yakin ingin menghapus user "${widget.user.nama}"?',
+                            ),
+                            actions: [
+                              TextButton(
+                                child: const Text('Batal'),
+                                onPressed: () =>
+                                    Navigator.of(dialogContext).pop(),
+                              ),
+                              TextButton(
+                                child: const Text(
+                                  'Hapus',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                                onPressed: () async {
+                                  Navigator.of(dialogContext).pop();
+
+                                  setState(() => _isDeleting = true);
+
+                                  try {
+                                    await ref
+                                        .read(userControllerProvider.notifier)
+                                        .deleteUser(widget.user.userId);
+
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'User berhasil dihapus',
+                                          ),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                      Navigator.of(context).pop();
+                                    }
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Gagal menghapus: ${e.toString()}',
+                                          ),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  } finally {
+                                    if (mounted) {
+                                      setState(() => _isDeleting = false);
+                                    }
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  disabledBackgroundColor: Colors.red.withOpacity(0.5),
+                ),
+                icon: _isDeleting
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 3,
+                        ),
+                      )
+                    : const Icon(Icons.delete),
+                label: Text(_isDeleting ? "Menghapus..." : "Hapus"),
               ),
             ),
           ],
@@ -146,10 +231,16 @@ class UserDetailScreen extends ConsumerWidget {
         children: [
           SizedBox(
             width: 120,
-            child: Text("$label:", style: const TextStyle(color: Colors.black54)),
+            child: Text(
+              "$label:",
+              style: const TextStyle(color: Colors.black54),
+            ),
           ),
           Expanded(
-            child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
           ),
         ],
       ),
@@ -157,13 +248,10 @@ class UserDetailScreen extends ConsumerWidget {
   }
 }
 
-// WIDGET KECIL UNTUK STATISTIK
 class _StatCard extends StatelessWidget {
-  final String title;
-  final String value;
+  final String title, value;
   final Color color;
   final IconData icon;
-
   const _StatCard({
     required this.title,
     required this.value,
@@ -193,7 +281,11 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             value,
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color),
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
         ],
       ),
