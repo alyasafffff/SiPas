@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 
 final String? _appsScriptUrl = dotenv.env['APPS_SCRIPT_URL'];
 
@@ -12,8 +14,8 @@ class ApiService {
   ApiService(this._dio) {
     _dio.options.baseUrl = _appsScriptUrl ?? '';
     // Konfigurasi timeout untuk mencegah aplikasi hang terlalu lama
-    _dio.options.connectTimeout = const Duration(seconds: 30);
-    _dio.options.receiveTimeout = const Duration(seconds: 30);
+    _dio.options.connectTimeout = const Duration(seconds: 60);
+    _dio.options.receiveTimeout = const Duration(seconds: 60);
 
     // --- TAMBAHKAN INTERCEPTOR ---
     // Hanya aktifkan log saat dalam mode debug
@@ -59,7 +61,7 @@ class ApiService {
 
   // Metode POST: untuk mengirim, mengubah, atau menghapus data
   // Data dikirim di dalam body permintaan
-  Future<Map<String, dynamic>> _post(Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> _postJson(Map<String, dynamic> body) async {
     if (_appsScriptUrl == null)
       throw Exception("URL Script tidak ditemukan di .env");
     try {
@@ -81,44 +83,62 @@ class ApiService {
     }
   }
 
+  // --- METODE BARU UNTUK MULTIPART/FORM-DATA ---
+  Future<Map<String, dynamic>> _postFormData({
+    required Map<String, dynamic> data,
+    List<File> files = const [],
+  }) async {
+    if (_appsScriptUrl == null) throw Exception("URL Script tidak ditemukan di .env");
+
+    try {
+      // Ubah semua nilai di map menjadi String
+      final Map<String, String> stringData =
+          data.map((key, value) => MapEntry(key, value.toString()));
+
+      final formData = FormData.fromMap(stringData);
+
+      // Tambahkan semua file ke dalam form data
+      for (int i = 0; i < files.length; i++) {
+        File file = files[i];
+        formData.files.add(MapEntry(
+          'file$i', // Nama field file di server
+          await MultipartFile.fromFile(file.path, filename: p.basename(file.path)),
+        ));
+      }
+
+      final response = await _dio.post('', data: formData);
+
+      if (response.data is String) {
+        return jsonDecode(response.data);
+      }
+      return response.data;
+
+    } on DioException catch (e) {
+      throw Exception('Gagal mengirim form-data: ${e.message}');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   // --- PEMBAGIAN FUNGSI API ---
 
-  // Menggunakan GET
-  Future<Map<String, dynamic>> login(String email, String password) {
-    return _get({'action': 'login', 'email': email, 'password': password});
+   // GET
+  Future<Map<String, dynamic>> login(String email, String password) => _get({'action': 'login', 'email': email, 'password': password});
+  Future<Map<String, dynamic>> getAllLaporan() => _get({'action': 'getAllLaporan'});
+  Future<Map<String, dynamic>> getAllUsers() => _get({'action': 'getAllUsers'});
+
+  // POST (FormData)
+  Future<Map<String, dynamic>> addUser(Map<String, dynamic> data, File fotoProfil) {
+    return _postFormData(data: {'action': 'addUser', ...data}, files: [fotoProfil]);
+  }
+  Future<Map<String, dynamic>> addLaporan(Map<String, dynamic> data, List<File> fotoBefore) {
+    return _postFormData(data: {'action': 'addLaporan', ...data}, files: fotoBefore);
   }
 
-  Future<Map<String, dynamic>> getAllLaporan() {
-    return _get({'action': 'getAllLaporan'});
-  }
-
-  Future<Map<String, dynamic>> getAllUsers() {
-    return _get({'action': 'getAllUsers'});
-  }
-
-  // Menggunakan POST
-  Future<Map<String, dynamic>> addLaporan(Map<String, dynamic> data) {
-    return _post({'action': 'addLaporan', 'data': data});
-  }
-
-  Future<Map<String, dynamic>> addUser(Map<String, dynamic> data) {
-    return _post({'action': 'addUser', 'data': data});
-  }
-
-  Future<Map<String, dynamic>> updateLaporan(Map<String, dynamic> data) {
-    return _post({'action': 'updateLaporan', 'data': data});
-  }
-
-  Future<Map<String, dynamic>> updateUser(Map<String, dynamic> data) {
-    return _post({'action': 'updateUser', 'data': data});
-  }
-
-  Future<Map<String, dynamic>> deleteUser(String userId) {
-    return _post({
-      'action': 'deleteUser',
-      'data': {'user_id': userId},
-    });
-  }
+  // POST (JSON)
+  Future<Map<String, dynamic>> updateUser(Map<String, dynamic> data) => _postJson({'action': 'updateUser', 'data': data});
+  Future<Map<String, dynamic>> updateLaporan(Map<String, dynamic> data) => _postJson({'action': 'updateLaporan', 'data': data});
+  Future<Map<String, dynamic>> deleteUser(String userId) => _postJson({'action': 'deleteUser', 'data': {'user_id': userId}});
 }
 
 // Provider untuk ApiService

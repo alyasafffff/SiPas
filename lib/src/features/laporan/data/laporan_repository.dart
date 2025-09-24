@@ -51,29 +51,19 @@ class LaporanRepository {
     required String judul,
     required String deskripsi,
     required List<File> fotoBefore,
-    required String idPelapor, // Tambahkan idPelapor
+    required String idPelapor,
   }) async {
-    // Ubah setiap file gambar menjadi objek Map yang berisi base64 dan tipe filenya
-    List<Map<String, String>> fotoBeforeBase64 = fotoBefore.map((file) {
-      final bytes = file.readAsBytesSync();
-      final base64Image = base64Encode(bytes);
-      final fileType = p.extension(file.path).replaceAll('.', ''); // misal: 'jpg'
-      return {
-        'base64': base64Image,
-        'type': 'image/$fileType', // misal: 'image/jpeg'
-        'name': p.basename(file.path),
-      };
-    }).toList();
-
-    final Map<String, dynamic> laporanData = {
-      'judul': judul,
-      'deskripsi': deskripsi,
-      'id_pelapor': idPelapor,
-      'foto_before': fotoBeforeBase64, // Kirim data base64
-    };
-
     try {
-      final responseData = await _apiService.addLaporan(laporanData);
+      final Map<String, dynamic> laporanData = {
+        'judul': judul,
+        'deskripsi': deskripsi,
+        'id_pelapor': idPelapor,
+      };
+      // Langsung kirim data dan list file
+      final responseData = await _apiService.addLaporan(
+        laporanData,
+        fotoBefore,
+      );
       if (responseData['status'] != 'success') {
         throw Exception(responseData['message'] ?? 'Gagal menambah laporan');
       }
@@ -83,25 +73,25 @@ class LaporanRepository {
   }
 
   Future<void> updateLaporan({
-  required String laporanId,
-  required String deskripsi,
-  // Nanti akan ada List<File> fotoAfterBaru, dll.
-}) async {
-  final Map<String, dynamic> laporanData = {
-    'laporan_id': laporanId,
-    'deskripsi': deskripsi,
-    // Nanti kita akan tambahkan data lain yang diupdate
-  };
+    required String laporanId,
+    required String deskripsi,
+    // Nanti akan ada List<File> fotoAfterBaru, dll.
+  }) async {
+    final Map<String, dynamic> laporanData = {
+      'laporan_id': laporanId,
+      'deskripsi': deskripsi,
+      // Nanti kita akan tambahkan data lain yang diupdate
+    };
 
-  try {
-    final responseData = await _apiService.updateLaporan(laporanData);
-    if (responseData['status'] != 'success') {
-      throw Exception(responseData['message'] ?? 'Gagal update laporan');
+    try {
+      final responseData = await _apiService.updateLaporan(laporanData);
+      if (responseData['status'] != 'success') {
+        throw Exception(responseData['message'] ?? 'Gagal update laporan');
+      }
+    } catch (e) {
+      rethrow;
     }
-  } catch (e) {
-    rethrow;
   }
-}
 }
 
 // Provider untuk LaporanRepository

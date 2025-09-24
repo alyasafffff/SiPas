@@ -29,17 +29,8 @@ class UserRepository {
     required File fotoProfil,
   }) async {
     try {
-      final bytes = await fotoProfil.readAsBytes();
-      final base64Image = base64Encode(bytes);
-      final fileType = p.extension(fotoProfil.path).replaceAll('.', '');
-
-      userData['foto_profil'] = {
-        'base64': base64Image,
-        'type': 'image/$fileType',
-        'name': p.basename(fotoProfil.path),
-      };
-
-      final response = await _apiService.addUser(userData);
+      // Langsung kirim data dan file, tidak perlu encoding base64
+      final response = await _apiService.addUser(userData, fotoProfil);
       if (response['status'] != 'success') {
         throw Exception(response['message'] ?? 'Gagal menambah user');
       }
