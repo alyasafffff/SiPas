@@ -290,7 +290,7 @@ class DashboardTabKasek extends StatelessWidget {
 
             // ---------- Laporan Terlama ----------
             const Text(
-              "Laporan Terlama (Masih Proses)",
+              "Laporan Butuh Tindakan",
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
