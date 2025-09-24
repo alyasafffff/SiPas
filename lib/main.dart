@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
-import 'splash_screen.dart'; // pastikan file splash_screen.dart ada
-// jangan import login.dart di sini, karena login dipanggil dari splash
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // 1. Import package
+import 'splash_screen.dart';
 
-void main() {
+// 2. Ubah fungsi main menjadi async
+Future<void> main() async {
+  // 3. Pastikan Flutter diinisialisasi
+  WidgetsFlutterBinding.ensureInitialized();
+  // 4. Muat file .env dan tunggu sampai selesai
+  await dotenv.load(fileName: ".env");
+
   runApp(const MyApp());
 }
 
@@ -15,7 +21,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Lapor App',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: const SplashScreen(), // mulai dari splash
+      home: const SplashScreen(),
     );
   }
 }

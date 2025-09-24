@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:lapor_app/api_service.dart'; // Hanya butuh import ini untuk API
 
 class TambahUserPage extends StatefulWidget {
   const TambahUserPage({super.key});
@@ -20,11 +22,78 @@ class _TambahUserPageState extends State<TambahUserPage> {
   String _selectedRole = 'Staff'; // default role
   File? _fotoProfil;
   final ImagePicker _picker = ImagePicker();
+  bool _isLoading = false; // State untuk loading
 
   Future<void> _pickFotoProfil() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
       setState(() => _fotoProfil = File(image.path));
+    }
+  }
+
+  // Fungsi untuk menangani penyimpanan user
+  Future<void> _handleSimpanUser() async {
+    if (_formKey.currentState!.validate()) {
+      if (_fotoProfil == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Foto Profil wajib diupload")),
+        );
+        return;
+      }
+
+      setState(() => _isLoading = true);
+
+      // 🔹 Convert File ke Base64
+      final bytes = await _fotoProfil!.readAsBytes();
+      final fotoBase64 = base64Encode(bytes);
+      final ext = _fotoProfil!.path
+          .split('.')
+          .last; // ambil extension (png/jpg)
+
+      var userData = {
+        "user_id": DateTime.now().millisecondsSinceEpoch.toString(),
+        "nama": _namaController.text,
+        "email": _emailController.text,
+        "password": _passwordController.text,
+        "nomor_hp": _hpController.text,
+        "jabatan": _jabatanController.text,
+        "role": _selectedRole,
+        "foto_base64": fotoBase64,
+        "foto_ext": ext,
+      };
+
+      try {
+        final response = await ApiService.post("createUser", userData);
+
+        if (!mounted) return;
+
+        if (response is Map && response['status'] == 'success') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("User berhasil ditambahkan"),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context);
+        } else {
+          final msg = response is Map
+              ? (response['message'] ?? "Tidak ada pesan")
+              : response.toString();
+          throw Exception(msg);
+        }
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Terjadi error: ${e.toString()}"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
     }
   }
 
@@ -48,7 +117,7 @@ class _TambahUserPageState extends State<TambahUserPage> {
           key: _formKey,
           child: ListView(
             children: [
-              // Nama
+              // Semua TextFormField seperti sebelumnya...
               TextFormField(
                 controller: _namaController,
                 decoration: const InputDecoration(
@@ -58,8 +127,6 @@ class _TambahUserPageState extends State<TambahUserPage> {
                 validator: (val) => val!.isEmpty ? "Nama wajib diisi" : null,
               ),
               const SizedBox(height: 12),
-
-              // Email
               TextFormField(
                 controller: _emailController,
                 decoration: const InputDecoration(
@@ -69,8 +136,6 @@ class _TambahUserPageState extends State<TambahUserPage> {
                 validator: (val) => val!.isEmpty ? "Email wajib diisi" : null,
               ),
               const SizedBox(height: 12),
-
-              // Nomor HP
               TextFormField(
                 controller: _hpController,
                 decoration: const InputDecoration(
@@ -81,8 +146,6 @@ class _TambahUserPageState extends State<TambahUserPage> {
                     val!.isEmpty ? "Nomor HP wajib diisi" : null,
               ),
               const SizedBox(height: 12),
-
-              // Password
               TextFormField(
                 controller: _passwordController,
                 obscureText: true,
@@ -94,8 +157,6 @@ class _TambahUserPageState extends State<TambahUserPage> {
                     val!.isEmpty ? "Password wajib diisi" : null,
               ),
               const SizedBox(height: 12),
-
-              // Jabatan
               TextFormField(
                 controller: _jabatanController,
                 decoration: const InputDecoration(
@@ -105,8 +166,6 @@ class _TambahUserPageState extends State<TambahUserPage> {
                 validator: (val) => val!.isEmpty ? "Jabatan wajib diisi" : null,
               ),
               const SizedBox(height: 12),
-
-              // Dropdown Role
               DropdownButtonFormField<String>(
                 value: _selectedRole,
                 items: const [
@@ -120,8 +179,6 @@ class _TambahUserPageState extends State<TambahUserPage> {
                 ),
               ),
               const SizedBox(height: 12),
-
-              // Tombol Upload Foto Profil
               ElevatedButton.icon(
                 onPressed: _pickFotoProfil,
                 icon: const Icon(Icons.camera_alt),
@@ -135,45 +192,27 @@ class _TambahUserPageState extends State<TambahUserPage> {
                 ),
               ),
               const SizedBox(height: 8),
-
-              // Preview Foto Profil
               if (_fotoProfil != null)
                 Center(
                   child: CircleAvatar(
-                    radius: 90, // ukuran lingkaran
+                    radius: 90,
                     backgroundImage: FileImage(_fotoProfil!),
-                    backgroundColor:
-                        Colors.grey.shade200, // fallback kalau kosong
+                    backgroundColor: Colors.grey.shade200,
                   ),
                 ),
             ],
           ),
         ),
       ),
-
-      // Tombol Simpan
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: SizedBox(
           width: double.infinity,
           height: 48,
           child: ElevatedButton.icon(
-            onPressed: () {
-              if (_formKey.currentState!.validate()) {
-                if (_fotoProfil == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Foto Profil wajib diupload")),
-                  );
-                  return;
-                }
-
-                // Simpan user ke backend / database
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("User berhasil ditambahkan")),
-                );
-                Navigator.pop(context);
-              }
-            },
+            onPressed: _isLoading
+                ? null
+                : _handleSimpanUser, // Panggil fungsi yang sudah dibuat
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0E2148),
               foregroundColor: Colors.white,
@@ -182,7 +221,16 @@ class _TambahUserPageState extends State<TambahUserPage> {
               ),
             ),
             icon: const Icon(Icons.save),
-            label: const Text("Simpan User"),
+            label: _isLoading
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Text("Simpan User"),
           ),
         ),
       ),

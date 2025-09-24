@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lapor_app/PhotoViewPage.dart';
+import 'package:lapor_app/api_service.dart';
 import 'package:lapor_app/kasek/update_user.dart';
 
 class DetailUserPage extends StatelessWidget {
@@ -107,29 +108,29 @@ class DetailUserPage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Center(
-  child: GestureDetector(
-    onTap: () {
-      if (fotoProfil != null && fotoProfil!.isNotEmpty) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => PhotoViewPage(imagePath: fotoProfil!)
-          ),
-        );
-      }
-    },
-    child: CircleAvatar(
-      radius: 90,
-      backgroundColor: Colors.grey.shade300,
-      backgroundImage: (fotoProfil != null && fotoProfil!.isNotEmpty)
-          ? (fotoProfil!.startsWith('http')
-                ? NetworkImage(fotoProfil!)
-                : AssetImage(fotoProfil!) as ImageProvider)
-          : null,
-    ),
-  ),
-),
-
+              child: GestureDetector(
+                onTap: () {
+                  if (fotoProfil != null && fotoProfil!.isNotEmpty) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PhotoViewPage(imagePath: fotoProfil!),
+                      ),
+                    );
+                  }
+                },
+                child: CircleAvatar(
+                  radius: 90,
+                  backgroundColor: Colors.grey.shade300,
+                  backgroundImage:
+                      (fotoProfil != null && fotoProfil!.isNotEmpty)
+                      ? (fotoProfil!.startsWith('http')
+                            ? NetworkImage(fotoProfil!)
+                            : AssetImage(fotoProfil!) as ImageProvider)
+                      : null,
+                ),
+              ),
+            ),
 
             const SizedBox(height: 16),
 
@@ -218,19 +219,94 @@ class DetailUserPage extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  // hapus user
+              child: StatefulBuilder(
+                builder: (context, setState) {
+                  bool isLoading = false;
+
+                  return ElevatedButton.icon(
+                    onPressed: isLoading
+                        ? null
+                        : () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text("Konfirmasi Hapus"),
+                                content: Text(
+                                  "Apakah Anda yakin ingin menghapus user $nama?",
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
+                                    child: const Text("Batal"),
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
+                                    child: const Text(
+                                      "Hapus",
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+
+                            if (confirm != true) return;
+
+                            setState(() => isLoading = true);
+
+                            try {
+                              final response = await ApiService.post(
+                                "deleteUser",
+                                {"id": id},
+                              );
+
+                              if (response['status'] == 'success') {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text("User berhasil dihapus"),
+                                  ),
+                                );
+                                Navigator.pop(
+                                  context,
+                                ); // Kembali ke halaman sebelumnya
+                              } else {
+                                throw Exception(
+                                  response['message'] ?? "Gagal hapus user",
+                                );
+                              }
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text("Error: ${e.toString()}"),
+                                ),
+                              );
+                            } finally {
+                              if (context.mounted)
+                                setState(() => isLoading = false);
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade600,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(Icons.delete),
+                    label: Text(isLoading ? "Menghapus..." : "Hapus"),
+                  );
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade600,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                icon: const Icon(Icons.delete),
-                label: const Text("Hapus"),
               ),
             ),
           ],
