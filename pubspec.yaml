@@ -28,7 +28,7 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
-  cupertino_icons: ^1.0.8
+  cupertino_icons: ^1.0.8      # <--- CUKUP SATU INI SAJA
   dio: ^5.9.0
   fl_chart: ^0.68.0
   flutter:
@@ -38,6 +38,8 @@ dependencies:
   image_picker: ^1.2.0
   path: ^1.9.1
   photo_view: ^0.15.0
+  flutter_image_compress: ^2.3.0
+  path_provider: ^2.1.3
 
 dev_dependencies:
   flutter_lints: ^5.0.0

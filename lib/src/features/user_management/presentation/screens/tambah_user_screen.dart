@@ -1,3 +1,10 @@
+// --- IMPORT TAMBAHAN ---
+// Pastikan 3 baris import ini ada di bagian atas file Anda.
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
+// -----------------------
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +19,7 @@ class TambahUserScreen extends ConsumerStatefulWidget {
 }
 
 class _TambahUserScreenState extends ConsumerState<TambahUserScreen> {
+  // Semua variabel Anda tetap di sini
   final _formKey = GlobalKey<FormState>();
   final _namaController = TextEditingController();
   final _emailController = TextEditingController();
@@ -32,7 +40,9 @@ class _TambahUserScreenState extends ConsumerState<TambahUserScreen> {
     _jabatanController.dispose();
     super.dispose();
   }
-
+  
+  // --- FUNGSI BARU ---
+  // Tambahkan fungsi untuk memilih gambar
   Future<void> _pickFotoProfil() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
@@ -40,6 +50,24 @@ class _TambahUserScreenState extends ConsumerState<TambahUserScreen> {
     }
   }
 
+  // Fungsi kompresi yang Anda bingung letakkan di sini
+  Future<File?> _compressFile(File file) async {
+    final dir = await getTemporaryDirectory();
+    final targetPath = p.join(dir.absolute.path, '${DateTime.now().millisecondsSinceEpoch}.jpg');
+
+    var result = await FlutterImageCompress.compressAndGetFile(
+      file.absolute.path,
+      targetPath,
+      quality: 60, // Kualitas gambar (0-100)
+    );
+
+    if (result != null) {
+      return File(result.path);
+    }
+    return null;
+  }
+
+  // Ganti fungsi _handleSimpanUser Anda yang lama dengan yang ini
   Future<void> _handleSimpanUser() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_fotoProfil == null) {
@@ -50,19 +78,33 @@ class _TambahUserScreenState extends ConsumerState<TambahUserScreen> {
     }
 
     setState(() => _isLoading = true);
+
+    // Blok kompresi gambar
+    File? compressedFoto = await _compressFile(_fotoProfil!);
+    if (compressedFoto == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Gagal mengompres gambar.")),
+        );
+        setState(() => _isLoading = false);
+      }
+      return;
+    }
+
     try {
       final userData = {
         "nama": _namaController.text,
         "email": _emailController.text,
-        "nomor_hp": _hpController.text, // PERBAIKAN: kunci diubah
+        "nomor_hp": _hpController.text,
         "password": _passwordController.text,
         "jabatan": _jabatanController.text,
         "role": _selectedRole,
       };
 
+      // Gunakan file yang sudah dikompresi
       await ref
           .read(userControllerProvider.notifier)
-          .addUser(userData: userData, fotoProfil: _fotoProfil!);
+          .addUser(userData: userData, fotoProfil: compressedFoto);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -71,13 +113,14 @@ class _TambahUserScreenState extends ConsumerState<TambahUserScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.of(context).pop(); // Kembali ke halaman daftar
+        Navigator.of(context).pop();
       }
     } catch (e) {
+      // Menampilkan pesan error yang lebih jelas
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Gagal: ${e.toString()}"),
+            content: Text("Gagal menyimpan: ${e.toString()}"),
             backgroundColor: Colors.red,
           ),
         );
@@ -91,7 +134,7 @@ class _TambahUserScreenState extends ConsumerState<TambahUserScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final userState = ref.watch(userControllerProvider);
+    // Bagian build() Anda sudah benar, tidak perlu diubah.
     return Scaffold(
       appBar: AppBar(title: const Text("Tambah User")),
       body: Form(
@@ -101,46 +144,31 @@ class _TambahUserScreenState extends ConsumerState<TambahUserScreen> {
           children: [
             TextFormField(
               controller: _namaController,
-              decoration: const InputDecoration(
-                labelText: "Nama Lengkap",
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: "Nama Lengkap", border: OutlineInputBorder()),
               validator: (v) => v!.isEmpty ? "Nama wajib diisi" : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _emailController,
-              decoration: const InputDecoration(
-                labelText: "Email",
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: "Email", border: OutlineInputBorder()),
               validator: (v) => v!.isEmpty ? "Email wajib diisi" : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _hpController,
-              decoration: const InputDecoration(
-                labelText: "Nomor HP",
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: "Nomor HP", border: OutlineInputBorder()),
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _passwordController,
               obscureText: true,
-              decoration: const InputDecoration(
-                labelText: "Password",
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: "Password", border: OutlineInputBorder()),
               validator: (v) => v!.isEmpty ? "Password wajib diisi" : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _jabatanController,
-              decoration: const InputDecoration(
-                labelText: "Jabatan",
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: "Jabatan", border: OutlineInputBorder()),
               validator: (v) => v!.isEmpty ? "Jabatan wajib diisi" : null,
             ),
             const SizedBox(height: 16),
@@ -151,14 +179,11 @@ class _TambahUserScreenState extends ConsumerState<TambahUserScreen> {
                 DropdownMenuItem(value: 'Staff', child: Text('Staff')),
               ],
               onChanged: (val) => setState(() => _selectedRole = val!),
-              decoration: const InputDecoration(
-                labelText: "Role",
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: "Role", border: OutlineInputBorder()),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
-              onPressed: _pickFotoProfil,
+              onPressed: _pickFotoProfil, // Pastikan tombol ini memanggil _pickFotoProfil
               icon: const Icon(Icons.camera_alt),
               label: const Text("Upload Foto Profil"),
             ),
@@ -180,10 +205,7 @@ class _TambahUserScreenState extends ConsumerState<TambahUserScreen> {
           icon: _isLoading
               ? const SizedBox.square(
                   dimension: 20,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 3,
-                  ),
+                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
                 )
               : const Icon(Icons.save),
           label: Text(_isLoading ? "Menyimpan..." : "Simpan User"),
