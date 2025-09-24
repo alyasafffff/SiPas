@@ -29,10 +29,12 @@ class UserRepository {
     required File fotoProfil,
   }) async {
     try {
-      // Langsung kirim data dan file, tidak perlu encoding base64
+      // Langsung kirim data teks dan file. Sisanya diurus oleh ApiService.
       final response = await _apiService.addUser(userData, fotoProfil);
       if (response['status'] != 'success') {
-        throw Exception(response['message'] ?? 'Gagal menambah user');
+        throw Exception(
+          response['message'] ?? 'Gagal menambah user dari repository',
+        );
       }
     } catch (e) {
       rethrow;
